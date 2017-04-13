@@ -1,4 +1,4 @@
-# OctoPrint-FilamentReloaded
+# Julia3GFilamentSensor
 
 Based on the Octoprint-Filament plugin by MoonshineSG (https://github.com/MoonshineSG/Octoprint-Filament),
 uses a smart time based system to detecting filament outage and fillament plug/clog. Meant to be used with two extruders
