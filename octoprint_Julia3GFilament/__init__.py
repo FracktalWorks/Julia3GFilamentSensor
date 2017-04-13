@@ -16,7 +16,7 @@ API to enable/Dissable sensor, and save this information
 '''
 
 
-class Julia3GFilament(octoprint.plugin.StartupPlugin,
+class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
 					  octoprint.plugin.EventHandlerPlugin,
 					  octoprint.plugin.SettingsPlugin,
 					  octoprint.plugin.TemplatePlugin,
@@ -307,13 +307,13 @@ class filamentSensor(object):
 				'isRotating': self.isRotating()}
 
 
-__plugin_name__ = "Julia3GFilament"
+__plugin_name__ = "Julia3GFilamentSensor"
 __plugin_version__ = "0.1.5"
 
 
 def __plugin_load__():
 	global __plugin_implementation__
-	__plugin_implementation__ = Julia3GFilament()
+	__plugin_implementation__ = Julia3GFilamentSensor()
 
 	global __plugin_hooks__
 	__plugin_hooks__ = {
