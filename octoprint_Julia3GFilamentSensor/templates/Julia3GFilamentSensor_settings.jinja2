@@ -5,21 +5,21 @@ Tune the timings of the filament sensor to prevent false positives
     <div class="control-group">
         <label class="control-label">{{ _('minExtrudeTime:') }}</label>
         <div class="controls" data-toggle="tooltip" title="{{ _('minimum time the extruder motor has to extrude to be considered extruding logically. This variable will account for the lag between staring extrude, and filament encoder moving') }}">
-            <input type="number" step="any" min="0" class="input-mini text-right" data-bind="value: settings.plugins.Julia3GFilament.minExtrudeTime">
+            <input type="number" step="any" min="0" class="input-mini text-right" data-bind="value: settings.plugins.Julia3GFilamentSensor.minExtrudeTime">
             <span class="add-on">ms</span>
         </div>
     </div>
     <div class="control-group">
         <label class="control-label">{{ _('filamentRunoutTime:') }}</label>
         <div class="controls" data-toggle="tooltip" title="{{ _('Time after filament sensor activity that the sensor is considered off. If the filament encoder has no activity for this amount of time, it will be considered triggered') }}">
-            <input type="number" step="any" min="0" class="input-mini text-right" data-bind="value: settings.plugins.Julia3GFilament.filamentRunoutTime">
+            <input type="number" step="any" min="0" class="input-mini text-right" data-bind="value: settings.plugins.Julia3GFilamentSensor.filamentRunoutTime">
             <span class="add-on">ms</span>
         </div>
     </div>
     <div class="control-group">
         <label class="control-label">{{ _('sensor Status:') }}</label>
         <div class="controls" data-toggle="tooltip" title="{{ _('Enable/Dissable FIlament Sensor') }}">
-            <select class="select-mini" data-bind="value: settings.plugins.Julia3GFilament.sensorCount">
+            <select class="select-mini" data-bind="value: settings.plugins.Julia3GFilamentSensor.sensorCount">
                 <option value=2>{{ _('ON') }}</option>
                 <option value=-1>{{ _('OFF') }}</option>
             </select>
