@@ -50,14 +50,11 @@ class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
 			filamentRunoutTime = int(self._settings.get(["filamentRunoutTime"]))
 			sensor0EncoderPin = int(self._settings.get(["sensor0EncoderPin"]))
 
-			#self.sensor0 = filamentSensor(sensorNumber=0, encoderPin=sensor0EncoderPin,
-										  filamentRunoutTime=filamentRunoutTime, bounce=bounce)
+			#self.sensor0 = filamentSensor(sensorNumber=0, encoderPin=sensor0EncoderPin,filamentRunoutTime=filamentRunoutTime, bounce=bounce)
 			self.motorExtrusion = motorExtrusion(extrudePin=extrudePin, minExtrudeTime=minExtrudeTime,
 												 bounce=bounce)
 			sensor1EncoderPin = int(self._settings.get(["sensor1EncoderPin"]))
-			#self.sensor1 = filamentSensor(sensorNumber=1,
-										  encoderPin=sensor1EncoderPin, filamentRunoutTime=filamentRunoutTime,
-										  bounce=bounce)
+			#self.sensor1 = filamentSensor(sensorNumber=1,encoderPin=sensor1EncoderPin, filamentRunoutTime=filamentRunoutTime,bounce=bounce)
 			self._logger.info("Number of Filament Sensors active : [%s]" % self.sensorCount)
 		else:
 			self._logger.info("No Filament sensors active")
@@ -246,14 +243,11 @@ class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
 			filamentRunoutTime = int(self._settings.get(["filamentRunoutTime"]))
 			sensor0EncoderPin = int(self._settings.get(["sensor0EncoderPin"]))
 
-			#self.sensor0 = filamentSensor(sensorNumber=0, encoderPin=sensor0EncoderPin,
-										  filamentRunoutTime=filamentRunoutTime, bounce=bounce)
+			#self.sensor0 = filamentSensor(sensorNumber=0, encoderPin=sensor0EncoderPin,filamentRunoutTime=filamentRunoutTime, bounce=bounce)
 			#self.motorExtrusion = motorExtrusion(extrudePin=extrudePin, minExtrudeTime=minExtrudeTime,
 												 bounce=bounce)
 			sensor1EncoderPin = int(self._settings.get(["sensor1EncoderPin"]))
-			#self.sensor1 = filamentSensor(sensorNumber=1,
-										  encoderPin=sensor1EncoderPin, filamentRunoutTime=filamentRunoutTime,
-										  bounce=bounce)
+			#self.sensor1 = filamentSensor(sensorNumber=1,encoderPin=sensor1EncoderPin, filamentRunoutTime=filamentRunoutTime, bounce=bounce)
 			#self.dissableFilamentSensing()
 		self._logger.info("Filament Sensor: New Settings Injected")
 		if self._printer.is_printing() or self._printer.is_paused():
