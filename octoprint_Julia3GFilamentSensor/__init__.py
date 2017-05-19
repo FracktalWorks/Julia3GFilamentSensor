@@ -328,7 +328,7 @@ class motorExtrusion(object):
 '''
 
 __plugin_name__ = "Julia3GFilamentSensor"
-__plugin_version__ = "0.1.6"
+__plugin_version__ = "0.1.7"
 
 
 def __plugin_load__():
