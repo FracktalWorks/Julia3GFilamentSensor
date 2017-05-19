@@ -242,7 +242,7 @@ class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
 			sensor0EncoderPin = int(self._settings.get(["sensor0EncoderPin"]))
 
 			#self.sensor0 = filamentSensor(sensorNumber=0, encoderPin=sensor0EncoderPin,filamentRunoutTime=filamentRunoutTime, bounce=bounce)
-			#self.motorExtrusion = motorExtrusion(extrudePin=extrudePin, minExtrudeTime=minExtrudeTime,
+			self.motorExtrusion = motorExtrusion(extrudePin=extrudePin, minExtrudeTime=minExtrudeTime,
 												 bounce=bounce)
 			sensor1EncoderPin = int(self._settings.get(["sensor1EncoderPin"]))
 			#self.sensor1 = filamentSensor(sensorNumber=1,encoderPin=sensor1EncoderPin, filamentRunoutTime=filamentRunoutTime, bounce=bounce)
