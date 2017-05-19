@@ -7,7 +7,7 @@ from flask import jsonify, make_response, request
 import RPi.GPIO as GPIO
 import time
 import threading
-import filamentSensor as sensor
+
 
 # TODO:
 '''
@@ -16,6 +16,28 @@ API to Caliberate
 API to enable/Dissable sensor, and save this information
 '''
 
+'''Functions to enable disable GPIO '''
+latestPulse={}
+filamentRunoutTime=15
+def enable(encoderPin):
+	GPIO.setup(encoderPin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+	GPIO.add_event_detect(encoderPin, GPIO.RISING, callback=callback, bouncetime=300)
+	latestPulse = time.time()
+
+def dissable(encoderPin):
+	GPIO.remove_event_detect(encoderPin)
+
+def callback(channel):
+	latestPulse[channel[0]] = time.time()
+	print channel,latestPulse[channel[0]]
+def isRotating(sensorPin):
+	'If the encoder hasnt moved for some time, means the fiament sensor isnt rotating'
+	if (time.time() - latestPulse[sensorPin] > filamentRunoutTime):
+		return False
+	else:
+		return True
+def getStatus(sensorPin):
+	return {'lastEncoderStep': time.time() - latestPulse[sensorPin],'isRotating': isRotating(sensorPin)}
 
 class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
 					  octoprint.plugin.EventHandlerPlugin,
@@ -89,8 +111,8 @@ class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
         '''
 		if self._printer.is_printing() or self._printer.is_paused():
 			if self.sensorCount == 2:
-				sensor0=sensor.getStatus(0)
-				sensor1=sensor.getStatus(1)
+				sensor0=getStatus(self.sensor0EncoderPin)
+				sensor1=getStatus(self.sensor1EncoderPin)
 				extruder = self.motorExtrusion.getStatus()
 				return jsonify(sensor0=sensor0, sensor1=sensor1, motorExtrusion=extruder)
 			else:
@@ -179,9 +201,9 @@ class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
 
 		try:
 			self.motorExtrusion.dissable()
-			sensor.dissable(self.sensor0EncoderPin)
+			dissable(self.sensor0EncoderPin)
 			self.filamentSensorEnabled = False
-			sensor.dissable(self.sensor1EncoderPin)
+			dissable(self.sensor1EncoderPin)
 			self._logger.info("Filament sensor dissabled")
 
 		except Exception:
@@ -191,9 +213,9 @@ class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
 		try:
 			if self.sensorCount != -1:
 				self.motorExtrusion.enable()
-				sensor.enable(self.sensor0EncoderPin)
+				enable(self.sensor0EncoderPin)
 				self.filamentSensorEnabled = True
-				sensor.enable(self.sensor1EncoderPin)
+				enable(self.sensor1EncoderPin)
 				self._logger.info("Filament sensor enabled")
 			else:
 				self._logger.info("No filament sensor to enable")
@@ -206,7 +228,7 @@ class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
 			try:
 				if self.filamentSensorEnabled and self.sensorCount == 2:
 					if (self.motorExtrusion.isExtruding() and not (
-								sensor.isRotating(self.sensor0EncoderPin) or sensor.isRotating(self.sensor1EncoderPin))):
+								isRotating(self.sensor0EncoderPin) or isRotating(self.sensor1EncoderPin))):
 						self.triggered()
 						self._logger.info("Filament sensor triggered")
 			except:
@@ -326,7 +348,7 @@ class motorExtrusion(object):
 '''
 
 __plugin_name__ = "Julia3GFilamentSensor"
-__plugin_version__ = "0.1.8"
+__plugin_version__ = "0.1.9"
 
 
 def __plugin_load__():
