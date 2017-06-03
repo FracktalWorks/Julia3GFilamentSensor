@@ -21,7 +21,6 @@ class RepeatedTimer(object):
         self.args       = args
         self.kwargs     = kwargs
         self.is_running = False
-        self.start()
 
     def _run(self):
         self.is_running = False
@@ -35,8 +34,9 @@ class RepeatedTimer(object):
             self.is_running = True
 
     def stop(self):
-        self._timer.cancel()
-        self.is_running = False
+		if self.is_running:
+			self._timer.cancel()
+			self.is_running = False
 
 class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
 					  octoprint.plugin.EventHandlerPlugin,
@@ -91,7 +91,7 @@ class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
 			extrudePin         = 13,
 			minExtrudeTime     = 5,
 			filamentRunoutTime = 15,
-			bounce             = 50  # Debounce 250ms
+			bounce             = 100  # Debounce 250ms
 		)
 
 	def get_template_configs(self):
@@ -105,14 +105,11 @@ class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
         '''
 		if self._printer.is_printing() or self._printer.is_paused():
 			if self.sensorCount != -1:
-				sensor0 = self.sensor0.getStatus()
-				extruder = self.motorExtrusion.getStatus()
-				return jsonify(sensor=sensor0, motorExtrusion=extruder)
+				return jsonify(sensor=self.sensor0.getStatus(), motorExtrusion=self.motorExtrusion.getStatus())
 			else:
 				return jsonify(sensor='No Sensors Connected')
 		else:
-			sensor0 = self.sensor0.getStatus()
-			return jsonify(status='Printer is not priting',sensor=sensor0)
+			return jsonify(status='Printer is not priting')
 
 	@octoprint.plugin.BlueprintPlugin.route("/message", methods=["GET"])
 	def message_test(self):
@@ -162,12 +159,14 @@ class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
         :return:
         '''
 		if event in (Events.PRINT_STARTED, Events.PRINT_RESUMED):  # If a new print is beginning
-			self.deactivateFilamentSensing()
-			self.activateFilamentSensing()
+			if self.sensorCount != -1:
+				self.deactivateFilamentSensing()
+				self.activateFilamentSensing()
 		elif event in (
 				Events.PRINT_DONE, Events.PRINT_FAILED, Events.PRINT_CANCELLED, Events.PRINT_PAUSED, Events.ERROR):
-			self.deactivateFilamentSensing()
-			self._logger.info("Printing paused/stoped: Filament sensor Dissabled")
+			if self.sensorCount != -1:
+				self.deactivateFilamentSensing()
+				self._logger.info("Filament sensor deactivated since print was paused")
 
 	def triggered(self):
 		'''
@@ -181,9 +180,9 @@ class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
 							  status_description="Error with filament, please check and resume print")
 			self.deactivateFilamentSensing()
 			self._printer.pause_print()
-			self._printer.jog(z=2, relative=True, speed=1000)
-			self._printer.jog(x=0, y=0, relative=False, speed=600)
-			self._logger.info("Printing paused: Filament sensor Dissabled")
+			self._logger.info("Filament Sensor Triggered, Pausing Print")
+
+
 
 	def _send_status(self, status_type, status_value, status_description=""):
 		self._plugin_manager.send_plugin_message(self._identifier,
@@ -196,6 +195,7 @@ class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
 			self.motorExtrusion.dissable()
 			self.sensor0.dissable()
 			self.filamentSensorActive = False
+			self._worker.stop()
 			self._logger.info("Filament sensor deactivated")
 
 		except Exception:
@@ -207,11 +207,12 @@ class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
 				self.motorExtrusion.enable()
 				self.sensor0.enable()
 				self.filamentSensorActive = True
+				self._worker.start()
 				self._logger.info("Filament sensor activated")
 			else:
 				self._logger.info("No filament sensor to activate because it is dissabld")
-		except RuntimeError:
-			self._logger.info("filament sensors could not be activated")
+		except RuntimeError,e:
+			self._logger.info("filament sensors could not be activated: " + str(e))
 
 	def worker(self):
 		try:
@@ -220,9 +221,8 @@ class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
 							self.sensor0.isRotating() )):
 					self.triggered()
 					self._logger.info("Filament sensor triggered")
-		except:
-			self._logger.info("Error in filament checkingThread")
-		time.sleep(5)
+		except Exception,e:
+			self._logger.info("Error in filament checkingThread: "+ str(e) )
 
 	def get_update_information(self):
 		return dict(
@@ -261,9 +261,10 @@ class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
 		if self._printer.is_printing() or self._printer.is_paused():
 			if self.sensorCount == -1:
 				self.deactivateFilamentSensing()
+				self._logger.info("Filament Sensor Deactivated")
 			elif self.sensorCount == 1:
 				self.activateFilamentSensing()
-				self._logger.info("Printing paused: Filament sensor Dissabled")
+				self._logger.info("Filament Sensor Activated")
 
 
 class motorExtrusion(object):
@@ -277,11 +278,17 @@ class motorExtrusion(object):
 			self._logger.info("Error while initialising Motor Pins")
 
 	def enable(self):
-		GPIO.add_event_detect(self.extrudePin, GPIO.RISING, callback=self.callback, bouncetime=self.bounce)
-		self.callback(self.extrudePin)
+		GPIO.add_event_detect(self.extrudePin, GPIO.BOTH, callback=self.callback, bouncetime=self.bounce)
+		self.latestPulse = time.time()
+		self.fallingPulse = time.time()
 
 	def callback(self, channel):
-		self.latestPulse = time.time()
+		if bool(GPIO.input(self.extrudePin)) == False: #Falling Edge detected
+			self.fallingPulse = time.time()
+		elif time.time() - self.fallingPulse > 0.1:  #if the low time is too less, disregard
+			self.latestPulse = time.time()
+
+
 
 	def dissable(self):
 		GPIO.remove_event_detect(self.extrudePin)
@@ -314,7 +321,7 @@ class filamentSensor(object):
 			self._logger.info("Error while initialising Filament Pins")
 
 	def enable(self):
-		GPIO.add_event_detect(self.encoderPin, GPIO.RISING, callback=self.callback, bouncetime=self.bounce)
+		GPIO.add_event_detect(self.encoderPin, GPIO.FALLING, callback=self.callback, bouncetime=self.bounce)
 		self.latestPulse = time.time()
 
 	def dissable(self):
