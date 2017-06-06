@@ -79,7 +79,7 @@ class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
 		else:
 			self._logger.info("FILAMENT SENSOR DISABLED")
 
-		self._worker=RepeatedTimer(10,self.worker)
+		self._worker=RepeatedTimer(5,self.worker)
 	def get_settings_defaults(self):
 		'''
         initialises default parameters
@@ -89,8 +89,8 @@ class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
 			sensorCount        = 2,  # Default is no pin
 			sensor0EncoderPin  = 5,
 			extrudePin         = 13,
-			minExtrudeTime     = 5,
-			filamentRunoutTime = 15,
+			minExtrudeTime     = 15,
+			filamentRunoutTime = 20,
 			bounce             = 100  # Debounce 250ms
 		)
 
@@ -343,7 +343,7 @@ class filamentSensor(object):
 
 
 __plugin_name__ = "Julia3GFilamentSensor"
-__plugin_version__ = "0.1.5"
+__plugin_version__ = "1.0.0"
 
 
 def __plugin_load__():
