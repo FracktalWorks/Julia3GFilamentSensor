@@ -7,42 +7,46 @@ from flask import jsonify, make_response, request
 import RPi.GPIO as GPIO
 import time
 from threading import Timer
+
 # TODO:
 '''
 API to change settings, and pins
 API to Caliberate
 API to enable/Dissable sensor, and save this information
 '''
+
+
 class RepeatedTimer(object):
-    def __init__(self, interval, function, *args, **kwargs):
-        self._timer     = None
-        self.interval   = interval
-        self.function   = function
-        self.args       = args
-        self.kwargs     = kwargs
-        self.is_running = False
+	def __init__(self, interval, function, *args, **kwargs):
+		self._timer = None
+		self.interval = interval
+		self.function = function
+		self.args = args
+		self.kwargs = kwargs
+		self.is_running = False
 
-    def _run(self):
-        self.is_running = False
-        self.start()
-        self.function(*self.args, **self.kwargs)
+	def _run(self):
+		self.is_running = False
+		self.start()
+		self.function(*self.args, **self.kwargs)
 
-    def start(self):
-        if not self.is_running:
-            self._timer = Timer(self.interval, self._run)
-            self._timer.start()
-            self.is_running = True
+	def start(self):
+		if not self.is_running:
+			self._timer = Timer(self.interval, self._run)
+			self._timer.start()
+			self.is_running = True
 
-    def stop(self):
+	def stop(self):
 		if self.is_running:
 			self._timer.cancel()
 			self.is_running = False
 
+
 class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
-					  octoprint.plugin.EventHandlerPlugin,
-					  octoprint.plugin.SettingsPlugin,
-					  octoprint.plugin.TemplatePlugin,
-					  octoprint.plugin.BlueprintPlugin):
+							octoprint.plugin.EventHandlerPlugin,
+							octoprint.plugin.SettingsPlugin,
+							octoprint.plugin.TemplatePlugin,
+							octoprint.plugin.BlueprintPlugin):
 	def initialize(self):
 		'''
         Checks RPI.GPIO version
@@ -62,43 +66,45 @@ class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
         logs the number of filament sensors active
         :return: None
         '''
-		self.filamentSensorActive = False #flag that controls turning on/off the filament sensor operation during operation
-		self.sensorCount = int(self._settings.get(["sensorCount"]))  #senco
+		self.sensorCount = int(self._settings.get(["sensorCount"]))  # senco
 		if self.sensorCount != -1:  # If a pin is defined
 			bounce = int(self._settings.get(["bounce"]))
 			extrudePin = int(self._settings.get(["extrudePin"]))
 			minExtrudeTime = int(self._settings.get(["minExtrudeTime"]))
+			extruderRunoutTime = float(self._settings.get(["extruderRunoutTime"]))
 			filamentRunoutTime = int(self._settings.get(["filamentRunoutTime"]))
 			sensor0EncoderPin = int(self._settings.get(["sensor0EncoderPin"]))
 
 			self.sensor0 = filamentSensor(sensorNumber=0, encoderPin=sensor0EncoderPin,
 										  filamentRunoutTime=filamentRunoutTime, bounce=bounce)
 			self.motorExtrusion = motorExtrusion(extrudePin=extrudePin, minExtrudeTime=minExtrudeTime,
-												 bounce=bounce)
+												 extruderRunoutTime=extruderRunoutTime, bounce=bounce)
 			self._logger.info("FILAMENT SENSOR ENABLED")
 		else:
 			self._logger.info("FILAMENT SENSOR DISABLED")
 
-		self._worker=RepeatedTimer(5,self.worker)
+		self._worker = RepeatedTimer(2, self.worker)
+
 	def get_settings_defaults(self):
 		'''
         initialises default parameters
         :return:
         '''
 		return dict(
-			sensorCount        = 2,  # Default is no pin
-			sensor0EncoderPin  = 5,
-			extrudePin         = 13,
-			minExtrudeTime     = 15,
-			filamentRunoutTime = 20,
-			bounce             = 100  # Debounce 250ms
+			sensorCount=2,  # Default is no pin
+			sensor0EncoderPin=5,
+			extrudePin=13,
+			minExtrudeTime=15,
+			extruderRunoutTime=0.3,
+			filamentRunoutTime=20,
+			bounce=100  # Debounce 250ms
 		)
 
 	def get_template_configs(self):
 		return [dict(type="settings", custom_bindings=False)]
 
 	@octoprint.plugin.BlueprintPlugin.route("/status", methods=["GET"])
-	def check_pin_config(self):
+	def check_status(self):
 		'''
         Checks and sends the pin configuration of the filament sensor(s)
         :return: response  dict of the pin configuration
@@ -133,19 +139,21 @@ class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
 			bounce = int(self._settings.get(["bounce"]))
 			extrudePin = int(self._settings.get(["extrudePin"]))
 			minExtrudeTime = int(self._settings.get(["minExtrudeTime"]))
+			extruderRunoutTime = float(self._settings.get(["extruderRunoutTime"]))
 			filamentRunoutTime = int(self._settings.get(["filamentRunoutTime"]))
 			sensor0EncoderPin = int(self._settings.get(["sensor0EncoderPin"]))
 
 			self.sensor0 = filamentSensor(sensorNumber=0, encoderPin=sensor0EncoderPin,
 										  filamentRunoutTime=filamentRunoutTime, bounce=bounce)
 			self.motorExtrusion = motorExtrusion(extrudePin=extrudePin, minExtrudeTime=minExtrudeTime,
-												 bounce=bounce)
+												 extruderRunoutTime=extruderRunoutTime, bounce=bounce)
 			self.deactivateFilamentSensing()
 		if self._printer.is_printing() or self._printer.is_paused():
 			if self.sensorCount == -1:
 				self.deactivateFilamentSensing()
 				return jsonify(STATUS='SENSOR DISSABLED & DEACTIVATED')
-			elif self.sensorCount == 1:
+			else:
+				self.deactivateFilamentSensing()
 				self.activateFilamentSensing()
 				return jsonify(STATUS='SENSOR ENABLED & ACTIVATED')
 		return jsonify(STATUS='SENSOR ENABLED')
@@ -182,19 +190,16 @@ class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
 			self._printer.pause_print()
 			self._logger.info("Filament Sensor Triggered, Pausing Print")
 
-
-
 	def _send_status(self, status_type, status_value, status_description=""):
 		self._plugin_manager.send_plugin_message(self._identifier,
-											 dict(type="status", status_type=status_type, status_value=status_value,
-												  status_description=status_description))
+												 dict(type="status", status_type=status_type, status_value=status_value,
+													  status_description=status_description))
 
 	def deactivateFilamentSensing(self):
 
 		try:
 			self.motorExtrusion.dissable()
 			self.sensor0.dissable()
-			self.filamentSensorActive = False
 			self._worker.stop()
 			self._logger.info("Filament sensor deactivated")
 
@@ -206,23 +211,21 @@ class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
 			if self.sensorCount != -1:
 				self.motorExtrusion.enable()
 				self.sensor0.enable()
-				self.filamentSensorActive = True
 				self._worker.start()
 				self._logger.info("Filament sensor activated")
 			else:
 				self._logger.info("No filament sensor to activate because it is dissabld")
-		except RuntimeError,e:
+		except RuntimeError, e:
 			self._logger.info("filament sensors could not be activated: " + str(e))
 
 	def worker(self):
 		try:
-			if self.filamentSensorActive and self.sensorCount != -1:
-				if (self.motorExtrusion.isExtruding() and not (
-							self.sensor0.isRotating() )):
-					self.triggered()
-					self._logger.info("Filament sensor triggered")
-		except Exception,e:
-			self._logger.info("Error in filament checkingThread: "+ str(e) )
+			if (self.motorExtrusion.isExtruding() and not (
+					self.sensor0.isRotating())):
+				self.triggered()
+				self._logger.info("Filament sensor triggered")
+		except Exception, e:
+			self._logger.info("Error in filament checkingThread: " + str(e))
 
 	def get_update_information(self):
 		return dict(
@@ -241,7 +244,6 @@ class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
 			)
 		)
 
-
 	def on_settings_save(self, data):
 		octoprint.plugin.SettingsPlugin.on_settings_save(self, data)
 		self.sensorCount = int(self._settings.get(["sensorCount"]))
@@ -249,13 +251,14 @@ class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
 			bounce = int(self._settings.get(["bounce"]))
 			extrudePin = int(self._settings.get(["extrudePin"]))
 			minExtrudeTime = int(self._settings.get(["minExtrudeTime"]))
+			extruderRunoutTime = float(self._settings.get(["extruderRunoutTime"]))
 			filamentRunoutTime = int(self._settings.get(["filamentRunoutTime"]))
 			sensor0EncoderPin = int(self._settings.get(["sensor0EncoderPin"]))
 
 			self.sensor0 = filamentSensor(sensorNumber=0, encoderPin=sensor0EncoderPin,
 										  filamentRunoutTime=filamentRunoutTime, bounce=bounce)
 			self.motorExtrusion = motorExtrusion(extrudePin=extrudePin, minExtrudeTime=minExtrudeTime,
-												 bounce=bounce)
+												 extruderRunoutTime=extruderRunoutTime, bounce=bounce)
 			self.deactivateFilamentSensing()
 		self._logger.info("Filament Sensor: New Settings Injected")
 		if self._printer.is_printing() or self._printer.is_paused():
@@ -263,15 +266,17 @@ class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
 				self.deactivateFilamentSensing()
 				self._logger.info("Filament Sensor Deactivated")
 			elif self.sensorCount == 1:
+				self.deactivateFilamentSensing()
 				self.activateFilamentSensing()
 				self._logger.info("Filament Sensor Activated")
 
 
 class motorExtrusion(object):
-	def __init__(self, extrudePin, minExtrudeTime, bounce):
+	def __init__(self, extrudePin, minExtrudeTime, extruderRunoutTime, bounce):
 		self.extrudePin = extrudePin
 		self.bounce = bounce
 		self.minExtrudeTime = minExtrudeTime
+		self.extruderRunoutTime = extruderRunoutTime
 		try:
 			GPIO.setup(self.extrudePin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 		except:
@@ -283,12 +288,10 @@ class motorExtrusion(object):
 		self.fallingPulse = time.time()
 
 	def callback(self, channel):
-		if bool(GPIO.input(self.extrudePin)) == False: #Falling Edge detected
+		if bool(GPIO.input(self.extrudePin)) == False:  # Falling Edge detected
 			self.fallingPulse = time.time()
-		elif time.time() - self.fallingPulse > 0.1:  #if the low time is too less, disregard
+		elif time.time() - self.fallingPulse > self.extruderRunoutTime:  # if the low time is too less, disregard
 			self.latestPulse = time.time()
-
-
 
 	def dissable(self):
 		GPIO.remove_event_detect(self.extrudePin)
@@ -343,7 +346,7 @@ class filamentSensor(object):
 
 
 __plugin_name__ = "Julia3GFilamentSensor"
-__plugin_version__ = "1.0.0"
+__plugin_version__ = "1.0.2"
 
 
 def __plugin_load__():
