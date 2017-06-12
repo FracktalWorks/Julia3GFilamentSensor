@@ -114,7 +114,7 @@ class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
         '''
 		if self._printer.is_printing() or self._printer.is_paused():
 			if self.sensorCount != -1:
-				return jsonify(sensor0=self.sensor0.getStatus(),sensor1=self.sensor0.getStatus(), motorExtrusion=self.motorExtrusion.getStatus())
+				return jsonify(sensor0=self.sensor0.getStatus(),sensor1=self.sensor1.getStatus(), motorExtrusion=self.motorExtrusion.getStatus())
 			else:
 				return jsonify(sensor='No Sensors Connected')
 		else:
@@ -356,7 +356,7 @@ class filamentSensor(object):
 
 
 __plugin_name__ = "Julia3GFilamentSensor"
-__plugin_version__ = "1.0.3"
+__plugin_version__ = "1.0.4"
 
 
 def __plugin_load__():
