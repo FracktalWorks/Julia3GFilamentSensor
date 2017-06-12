@@ -74,8 +74,10 @@ class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
 			extruderRunoutTime = float(self._settings.get(["extruderRunoutTime"]))
 			filamentRunoutTime = int(self._settings.get(["filamentRunoutTime"]))
 			sensor0EncoderPin = int(self._settings.get(["sensor0EncoderPin"]))
-
+			sensor1EncoderPin = int(self._settings.get(["sensor1EncoderPin"]))
 			self.sensor0 = filamentSensor(sensorNumber=0, encoderPin=sensor0EncoderPin,
+										  filamentRunoutTime=filamentRunoutTime, bounce=bounce)
+			self.sensor1 = filamentSensor(sensorNumber=1, encoderPin=sensor1EncoderPin,
 										  filamentRunoutTime=filamentRunoutTime, bounce=bounce)
 			self.motorExtrusion = motorExtrusion(extrudePin=extrudePin, minExtrudeTime=minExtrudeTime,
 												 extruderRunoutTime=extruderRunoutTime, bounce=bounce)
@@ -93,6 +95,7 @@ class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
 		return dict(
 			sensorCount=2,  # Default is no pin
 			sensor0EncoderPin=5,
+			sensor1EncoderPin=6,
 			extrudePin=13,
 			minExtrudeTime=15,
 			extruderRunoutTime=0.3,
@@ -111,7 +114,7 @@ class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
         '''
 		if self._printer.is_printing() or self._printer.is_paused():
 			if self.sensorCount != -1:
-				return jsonify(sensor=self.sensor0.getStatus(), motorExtrusion=self.motorExtrusion.getStatus())
+				return jsonify(sensor0=self.sensor0.getStatus(),sensor1=self.sensor0.getStatus(), motorExtrusion=self.motorExtrusion.getStatus())
 			else:
 				return jsonify(sensor='No Sensors Connected')
 		else:
@@ -142,8 +145,11 @@ class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
 			extruderRunoutTime = float(self._settings.get(["extruderRunoutTime"]))
 			filamentRunoutTime = int(self._settings.get(["filamentRunoutTime"]))
 			sensor0EncoderPin = int(self._settings.get(["sensor0EncoderPin"]))
+			sensor1EncoderPin = int(self._settings.get(["sensor1EncoderPin"]))
 
 			self.sensor0 = filamentSensor(sensorNumber=0, encoderPin=sensor0EncoderPin,
+										  filamentRunoutTime=filamentRunoutTime, bounce=bounce)
+			self.sensor1 = filamentSensor(sensorNumber=1, encoderPin=sensor1EncoderPin,
 										  filamentRunoutTime=filamentRunoutTime, bounce=bounce)
 			self.motorExtrusion = motorExtrusion(extrudePin=extrudePin, minExtrudeTime=minExtrudeTime,
 												 extruderRunoutTime=extruderRunoutTime, bounce=bounce)
@@ -200,6 +206,7 @@ class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
 		try:
 			self.motorExtrusion.dissable()
 			self.sensor0.dissable()
+			self.sensor1.dissable()
 			self._worker.stop()
 			self._logger.info("Filament sensor deactivated")
 
@@ -211,6 +218,7 @@ class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
 			if self.sensorCount != -1:
 				self.motorExtrusion.enable()
 				self.sensor0.enable()
+				self.sensor1.enable()
 				self._worker.start()
 				self._logger.info("Filament sensor activated")
 			else:
@@ -221,7 +229,7 @@ class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
 	def worker(self):
 		try:
 			if (self.motorExtrusion.isExtruding() and not (
-					self.sensor0.isRotating())):
+					self.sensor0.isRotating() or self.sensor1.isRotating())):
 				self.triggered()
 				self._logger.info("Filament sensor triggered")
 		except Exception, e:
@@ -254,8 +262,10 @@ class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
 			extruderRunoutTime = float(self._settings.get(["extruderRunoutTime"]))
 			filamentRunoutTime = int(self._settings.get(["filamentRunoutTime"]))
 			sensor0EncoderPin = int(self._settings.get(["sensor0EncoderPin"]))
-
+			sensor1EncoderPin = int(self._settings.get(["sensor1EncoderPin"]))
 			self.sensor0 = filamentSensor(sensorNumber=0, encoderPin=sensor0EncoderPin,
+										  filamentRunoutTime=filamentRunoutTime, bounce=bounce)
+			self.sensor1 = filamentSensor(sensorNumber=1, encoderPin=sensor1EncoderPin,
 										  filamentRunoutTime=filamentRunoutTime, bounce=bounce)
 			self.motorExtrusion = motorExtrusion(extrudePin=extrudePin, minExtrudeTime=minExtrudeTime,
 												 extruderRunoutTime=extruderRunoutTime, bounce=bounce)
@@ -265,7 +275,7 @@ class Julia3GFilamentSensor(octoprint.plugin.StartupPlugin,
 			if self.sensorCount == -1:
 				self.deactivateFilamentSensing()
 				self._logger.info("Filament Sensor Deactivated")
-			elif self.sensorCount == 1:
+			elif self.sensorCount == 2:
 				self.deactivateFilamentSensing()
 				self.activateFilamentSensing()
 				self._logger.info("Filament Sensor Activated")
@@ -346,7 +356,7 @@ class filamentSensor(object):
 
 
 __plugin_name__ = "Julia3GFilamentSensor"
-__plugin_version__ = "1.0.2"
+__plugin_version__ = "1.0.3"
 
 
 def __plugin_load__():
